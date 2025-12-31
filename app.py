@@ -98,10 +98,6 @@ else:
         os.makedirs(DATASET_FOLDER)
 
 
-# Ensure the main dataset directory exists
-if not os.path.exists(DATASET_FOLDER):
-    os.makedirs(DATASET_FOLDER)
-
 @app.route('/')
 def index():
     return render_template('index.html')
