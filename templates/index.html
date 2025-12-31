@@ -1,0 +1,589 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nepali Character Collector</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px; }
+        h2 { margin-bottom: 10px; }
+        
+        /* The Canvas */
+        canvas {
+            border: 2px solid #333;
+            cursor: crosshair;
+            touch-action: none; 
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: #fff; /* Fallback */
+        }
+
+        /* Controls */
+        .controls { margin-top: 15px; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-clear { background-color: #e74c3c; color: white; }
+        .btn-save { background-color: #2ecc71; color: white; }
+        
+        /* Dropdown Styling */
+        select {
+            font-size: 24px;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border: 2px solid #2c3e50;
+            background-color: white;
+            font-weight: bold;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+        }
+        
+        /* Success Message Toast */
+        #statusMessage {
+            color: green;
+            font-weight: bold;
+            height: 20px;
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Nepali Data Collector</h2>
+    
+    <select id="charSelect">
+        </select>
+    
+    <div id="statusMessage">Saved Successfully!</div>
+
+    <canvas id="drawingCanvas" width="300" height="300"></canvas>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearCanvas()">Clear</button>
+        <button class="btn-save" onclick="saveImage()">Save Character</button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION: 58 CLASSES ---
+        const numbers = ['०','१','२','३','४','५','६','७','८','९'];
+        const vowels = ['अ','आ','इ','ई','उ','ऊ','ए','ऐ','ओ','औ','अं','अः'];
+        const consonants = [
+            'क','ख','ग','घ','ङ',
+            'च','छ','ज','झ','ञ',
+            'ट','ठ','ड','ढ','ण',
+            'त','थ','द','ध','न',
+            'प','फ','ब','भ','म',
+            'य','र','ल','व','श',
+            'ष','स','ह','क्ष','त्र','ज्ञ'
+        ];
+        
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const selectBox = document.getElementById('charSelect');
+        const statusMsg = document.getElementById('statusMessage');
+
+        // --- 2. POPULATE DROPDOWN (Organized by Group) ---
+        function populateDropdown() {
+            createOptGroup("Numbers (0-9)", numbers);
+            createOptGroup("Vowels (Swor)", vowels);
+            createOptGroup("Consonants (Byanjan)", consonants);
+        }
+
+        function createOptGroup(label, chars) {
+            const group = document.createElement('optgroup');
+            group.label = label;
+            chars.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char;
+                option.innerText = char; // Display just the char
+                group.appendChild(option);
+            });
+            selectBox.appendChild(group);
+        }
+
+        // --- 3. DRAWING LOGIC (Mouse & Touch) ---
+        let isDrawing = false;
+
+        function startDraw(e) {
+            isDrawing = true;
+            draw(e);
+        }
+        function endDraw() {
+            isDrawing = false;
+            ctx.beginPath(); 
+        }
+        function draw(e) {
+            if (!isDrawing) return;
+
+            let clientX = e.clientX || e.touches[0].clientX;
+            let clientY = e.clientY || e.touches[0].clientY;
+            let rect = canvas.getBoundingClientRect();
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            ctx.lineWidth = 12; 
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000'; // Black ink
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // Event Listeners
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mousemove', draw);
+        
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+        canvas.addEventListener('touchend', endDraw);
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+
+        // --- 4. APP LOGIC ---
+
+        function clearCanvas() {
+            // White Background Fix
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Reset Brush Settings
+            ctx.lineWidth = 12;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+            ctx.beginPath();
+        }
+
+        function saveImage() {
+            const dataURL = canvas.toDataURL('image/png');
+            // GET LABEL FROM DROPDOWN
+            const currentLabel = selectBox.value;
+
+            fetch('/save_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataURL, label: currentLabel })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Saved:", currentLabel);
+                showStatus();
+                clearCanvas(); // Auto-clear for next drawing
+            })
+            .catch(err => console.error(err));
+        }
+        
+        function showStatus() {
+            statusMsg.style.opacity = '1';
+            setTimeout(() => {
+                statusMsg.style.opacity = '0';
+            }, 1000);
+        }
+
+        // Initialize
+        populateDropdown();
+        clearCanvas(); // Set white background immediately
+
+    </script>
+</body>
+</html> -->
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nepali Character Collector</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px; }
+        
+        /* THE CANVAS: Now 320x320 pixels */
+        canvas {
+            border: 3px solid #333; /* Thicker border */
+            background-color: #ffffff; /* Explicit White */
+            cursor: crosshair;
+            touch-action: none; 
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+        }
+
+        /* Controls */
+        .controls { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        .btn-clear { background-color: #e74c3c; color: white; }
+        .btn-save { background-color: #2ecc71; color: white; }
+        
+        /* Dropdown Styling */
+        select {
+            font-size: 22px;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 2px solid #2c3e50;
+            background-color: white;
+            font-weight: bold;
+            text-align: center;
+            width: 90%;
+            max-width: 320px; /* Matches canvas width */
+        }
+        
+        /* Success Message */
+        #statusMessage {
+            color: #27ae60;
+            font-weight: bold;
+            height: 24px;
+            margin-bottom: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Nepali Data Collector</h2>
+    <div id="statusMessage">Saved Successfully!</div>
+
+    <select id="charSelect"></select>
+    
+    <canvas id="drawingCanvas" width="320" height="320"></canvas>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearCanvas()">Clear</button>
+        <button class="btn-save" onclick="saveImage()">Save</button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION: 58 CLASSES ---
+        const numbers = ['०','१','२','३','४','५','६','७','८','९'];
+        const vowels = ['अ','आ','इ','ई','उ','ऊ','ए','ऐ','ओ','औ','अं','अः'];
+        const consonants = [
+            'क','ख','ग','घ','ङ',
+            'च','छ','ज','झ','ञ',
+            'ट','ठ','ड','ढ','ण',
+            'त','थ','द','ध','न',
+            'प','फ','ब','भ','म',
+            'य','र','ल','व','श',
+            'ष','स','ह','क्ष','त्र','ज्ञ'
+        ];
+        
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const selectBox = document.getElementById('charSelect');
+        const statusMsg = document.getElementById('statusMessage');
+
+        // --- 2. SETUP DROPDOWN ---
+        function populateDropdown() {
+            createOptGroup("Numbers (0-9)", numbers);
+            createOptGroup("Vowels (Swor)", vowels);
+            createOptGroup("Consonants (Byanjan)", consonants);
+        }
+
+        function createOptGroup(label, chars) {
+            const group = document.createElement('optgroup');
+            group.label = label;
+            chars.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char;
+                option.innerText = char; 
+                group.appendChild(option);
+            });
+            selectBox.appendChild(group);
+        }
+
+        // --- 3. DRAWING LOGIC ---
+        let isDrawing = false;
+
+        function startDraw(e) { isDrawing = true; draw(e); }
+        function endDraw() { isDrawing = false; ctx.beginPath(); }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+
+            // Coordinate logic for Mouse vs Touch
+            let clientX = e.clientX || e.touches[0].clientX;
+            let clientY = e.clientY || e.touches[0].clientY;
+            let rect = canvas.getBoundingClientRect();
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            // DRAWING SETTINGS
+            // Note: Since we increased canvas to 320px, we increase line width 
+            // to 15px so it still looks thick when resized down to 32px.
+            ctx.lineWidth = 15; 
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000'; 
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // Event Listeners
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+        canvas.addEventListener('touchend', endDraw);
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+
+        // --- 4. CORE FUNCTIONS ---
+
+        function clearCanvas() {
+            // Fill with WHITE (255,255,255) to prevent transparency issues
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Reset path
+            ctx.beginPath();
+        }
+
+        function saveImage() {
+            const dataURL = canvas.toDataURL('image/png');
+            const currentLabel = selectBox.value;
+
+            // Send big image to backend; backend will resize to 32x32
+            fetch('/save_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataURL, label: currentLabel })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Saved:", currentLabel);
+                showStatus();
+                clearCanvas(); 
+            })
+            .catch(err => console.error(err));
+        }
+        
+        function showStatus() {
+            statusMsg.style.opacity = '1';
+            setTimeout(() => { statusMsg.style.opacity = '0'; }, 1000);
+        }
+
+        // Init
+        populateDropdown();
+        clearCanvas(); // Ensure background is white on load
+
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nepali Character Collector</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px; }
+        
+        /* THE CANVAS: 320x320 pixels */
+        canvas {
+            border: 3px solid #333; 
+            background-color: #ffffff; /* Explicit White */
+            cursor: crosshair;
+            touch-action: none; 
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+        }
+
+        /* Controls */
+        .controls { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        .btn-clear { background-color: #e74c3c; color: white; }
+        .btn-save { background-color: #2ecc71; color: white; }
+        
+        /* Dropdown Styling */
+        select {
+            font-size: 22px;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 2px solid #2c3e50;
+            background-color: white;
+            font-weight: bold;
+            text-align: center;
+            width: 90%;
+            max-width: 320px; 
+        }
+        
+        /* Success Message */
+        #statusMessage {
+            color: #27ae60;
+            font-weight: bold;
+            height: 24px;
+            margin-bottom: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Nepali Data Collector</h2>
+    <div id="statusMessage">Saved Successfully!</div>
+
+    <select id="charSelect"></select>
+    
+    <canvas id="drawingCanvas" width="320" height="320"></canvas>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearCanvas()">Clear</button>
+        <button class="btn-save" onclick="saveImage()">Save</button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION: 58 CLASSES ---
+        const numbers = ['०','१','२','३','४','५','६','७','८','९'];
+        const vowels = ['अ','आ','इ','ई','उ','ऊ','ए','ऐ','ओ','औ','अं','अः'];
+        const consonants = [
+            'क','ख','ग','घ','ङ',
+            'च','छ','ज','झ','ञ',
+            'ट','ठ','ड','ढ','ण',
+            'त','थ','द','ध','न',
+            'प','फ','ब','भ','म',
+            'य','र','ल','व','श',
+            'ष','स','ह','क्ष','त्र','ज्ञ'
+        ];
+        
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const selectBox = document.getElementById('charSelect');
+        const statusMsg = document.getElementById('statusMessage');
+
+        // --- 2. SETUP DROPDOWN ---
+        function populateDropdown() {
+            createOptGroup("Numbers (0-9)", numbers);
+            createOptGroup("Vowels (Swor)", vowels);
+            createOptGroup("Consonants (Byanjan)", consonants);
+        }
+
+        function createOptGroup(label, chars) {
+            const group = document.createElement('optgroup');
+            group.label = label;
+            chars.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char;
+                option.innerText = char; 
+                group.appendChild(option);
+            });
+            selectBox.appendChild(group);
+        }
+
+        // --- 3. DRAWING LOGIC (With Glitch Fix) ---
+        let isDrawing = false;
+
+        function startDraw(e) { isDrawing = true; draw(e); }
+        function endDraw() { isDrawing = false; ctx.beginPath(); }
+        
+        function draw(e) {
+            // CRITICAL CHECK: If mouse button is NOT pressed (buttons === 0), stop drawing.
+            // This acts as a failsafe for the "hovering ink" bug.
+            if (e.type === 'mousemove' && e.buttons === 0) {
+                isDrawing = false;
+            }
+
+            if (!isDrawing) return;
+
+            let clientX = e.clientX || e.touches[0].clientX;
+            let clientY = e.clientY || e.touches[0].clientY;
+            let rect = canvas.getBoundingClientRect();
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            ctx.lineWidth = 15; 
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000'; 
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // --- EVENT LISTENERS (Updated) ---
+        
+        // Mouse Events
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mousemove', draw);
+        
+        // ** THE FIX: Stop drawing if mouse leaves the canvas area **
+        canvas.addEventListener('mouseleave', endDraw);
+
+        // Touch Events (Mobile)
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+        canvas.addEventListener('touchend', endDraw);
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+
+        // --- 4. CORE FUNCTIONS ---
+
+        function clearCanvas() {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+        }
+
+        function saveImage() {
+            const dataURL = canvas.toDataURL('image/png');
+            const currentLabel = selectBox.value;
+
+            fetch('/save_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataURL, label: currentLabel })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Saved:", currentLabel);
+                showStatus();
+                clearCanvas(); 
+            })
+            .catch(err => console.error(err));
+        }
+        
+        function showStatus() {
+            statusMsg.style.opacity = '1';
+            setTimeout(() => { statusMsg.style.opacity = '0'; }, 1000);
+        }
+
+        // Init
+        populateDropdown();
+        clearCanvas(); 
+
+    </script>
+</body>
+</html>
